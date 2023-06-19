@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RiddlesRequest(BaseModel):
-    questions_num: int
+    questions_num: int = Field(..., gt=0, le=1000)
 
 
 class RiddlesResponse(BaseModel):

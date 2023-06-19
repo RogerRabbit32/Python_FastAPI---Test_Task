@@ -1,5 +1,5 @@
 import requests
-from typing import List, Union
+from typing import List
 
 import dateutil.parser
 from sqlalchemy.orm import Session
@@ -26,7 +26,7 @@ def fetch_riddles(count: int) -> List:
     return fetched_riddles
 
 
-def save_riddles(db: Session, riddles: List) -> Union[int, Riddle]:
+def save_riddles(db: Session, riddles: List) -> Riddle:
     non_unique_riddles = 0
     attempts = 3
     last_saved_riddle = None
@@ -45,8 +45,10 @@ def save_riddles(db: Session, riddles: List) -> Union[int, Riddle]:
         else:
             non_unique_riddles += 1
 
+    print(f"---------!!!! Non-unique riddles: {non_unique_riddles}!!!!-------------")
     while non_unique_riddles != 0 and attempts != 0:
-        new_riddles = fetch_riddles(non_unique_riddles * 2)
+        new_riddles = fetch_riddles(non_unique_riddles)
+        print(new_riddles)
         for riddle in new_riddles:
             if non_unique_riddles == 0:
                 db.commit()
@@ -66,9 +68,10 @@ def save_riddles(db: Session, riddles: List) -> Union[int, Riddle]:
                 continue
         attempts -= 1
 
+    print(f"---------!!!! Attempts left: {attempts}!!!!-------------")
     if non_unique_riddles != 0 and attempts == 0:
         raise HTTPException(status_code=502, detail="Failed to fetch the requested amount of new riddles")
 
-    print(f"---------!!!!{attempts}!!!!-------------")
+    print(f"---------!!!! Attempts left: {attempts}!!!!-------------")
     db.commit()
     return last_saved_riddle
