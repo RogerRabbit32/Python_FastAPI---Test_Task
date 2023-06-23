@@ -53,19 +53,21 @@ def save_riddles(db: Session, riddles: List) -> Riddle:
             if non_unique_riddles == 0:
                 db.commit()
                 return last_saved_riddle
-            db_riddle = db.query(Riddle).filter_by(id=riddle["id"]).first()
-            if db_riddle is None:
-                db_riddle = Riddle(
-                    id=riddle["id"],
-                    question=riddle["question"],
-                    answer=riddle["answer"],
-                    created_at=dateutil.parser.isoparse(riddle["created_at"])
-                )
-                db.add(db_riddle)
-                non_unique_riddles -= 1
-                last_saved_riddle = riddle
             else:
-                continue
+                db_riddle = db.query(Riddle).filter_by(id=riddle["id"]).first()
+                print(db_riddle)
+                if db_riddle is None:
+                    db_riddle = Riddle(
+                        id=riddle["id"],
+                        question=riddle["question"],
+                        answer=riddle["answer"],
+                        created_at=dateutil.parser.isoparse(riddle["created_at"])
+                    )
+                    db.add(db_riddle)
+                    non_unique_riddles -= 1
+                    last_saved_riddle = riddle
+                else:
+                    continue
         attempts -= 1
 
     print(f"---------!!!! Attempts left: {attempts}!!!!-------------")
