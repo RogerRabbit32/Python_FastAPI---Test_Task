@@ -10,7 +10,9 @@ from models import Riddle
 
 def fetch_riddles(count: int) -> List:
     fetched_riddles = []
+    ids_to_add = {}
     remaining_count = count
+    successfully_added = 0
 
     while remaining_count > 0:
         current_count = min(remaining_count, 100)
@@ -18,8 +20,14 @@ def fetch_riddles(count: int) -> List:
         try:
             external_response = requests.get(query_url)
             riddles = external_response.json()
-            fetched_riddles.extend(riddles)
-            remaining_count -= current_count
+            for riddle in riddles:
+                if riddle["id"] in ids_to_add:
+                    continue
+                else:
+                    fetched_riddles.append(riddle)
+                    ids_to_add[riddle["id"]] = True
+                    successfully_added += 1
+            remaining_count -= successfully_added
         except requests.exceptions.RequestException as e:
             raise HTTPException(status_code=502, detail=str(e))
 
@@ -27,9 +35,9 @@ def fetch_riddles(count: int) -> List:
 
 
 def save_riddles(db: Session, riddles: List) -> Riddle:
-    non_unique_riddles = 0
-    attempts = 3
+    riddles_already_in_db = 0
     last_saved_riddle = None
+    attempts = 3
 
     for riddle in riddles:
         db_riddle = db.query(Riddle).filter_by(id=riddle["id"]).first()
@@ -43,19 +51,19 @@ def save_riddles(db: Session, riddles: List) -> Riddle:
             db.add(db_riddle)
             last_saved_riddle = riddle
         else:
-            non_unique_riddles += 1
+            riddles_already_in_db += 1
 
-    print(f"---------!!!! Non-unique riddles: {non_unique_riddles}!!!!-------------")
-    while non_unique_riddles != 0 and attempts != 0:
-        new_riddles = fetch_riddles(non_unique_riddles)
-        print(new_riddles)
+    db.commit()
+
+    print(f"---------!!!! Non-unique riddles: {riddles_already_in_db}!!!!-------------")
+    while riddles_already_in_db != 0 and attempts != 0:
+        new_riddles = fetch_riddles(riddles_already_in_db)
         for riddle in new_riddles:
-            if non_unique_riddles == 0:
+            if riddles_already_in_db == 0:
                 db.commit()
                 return last_saved_riddle
             else:
                 db_riddle = db.query(Riddle).filter_by(id=riddle["id"]).first()
-                print(db_riddle)
                 if db_riddle is None:
                     db_riddle = Riddle(
                         id=riddle["id"],
@@ -64,16 +72,16 @@ def save_riddles(db: Session, riddles: List) -> Riddle:
                         created_at=dateutil.parser.isoparse(riddle["created_at"])
                     )
                     db.add(db_riddle)
-                    non_unique_riddles -= 1
+                    riddles_already_in_db -= 1
                     last_saved_riddle = riddle
                 else:
                     continue
+        db.commit()
         attempts -= 1
 
     print(f"---------!!!! Attempts left: {attempts}!!!!-------------")
-    if non_unique_riddles != 0 and attempts == 0:
-        raise HTTPException(status_code=502, detail="Failed to fetch the requested amount of new riddles")
+    if riddles_already_in_db != 0 and attempts == 0:
+        raise HTTPException(status_code=502, detail=f"Failed to add {len(riddles)} new unique riddles. "
+                                                    f"Successfully added {len(riddles) - riddles_already_in_db}")
 
-    print(f"---------!!!! Attempts left: {attempts}!!!!-------------")
-    db.commit()
     return last_saved_riddle
